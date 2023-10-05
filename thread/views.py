@@ -21,11 +21,10 @@ class Concurrent(APIView):
                 return response.json()
             return {'error': f'Failed to retrieve data from {url}'}
 
-        api_urls = ['https://jsonplaceholder.typicode.com/posts/1',
-                    'https://jsonplaceholder.typicode.com/posts/2',
-                    'https://jsonplaceholder.typicode.com/posts/3',
-                    'https://jsonplaceholder.typicode.com/posts/4']
-
+        api_urls = ['https://api.publicapis.org/entries',
+                    'https://api.publicapis.org/entries',
+                    'https://api.publicapis.org/entries',
+                    'https://api.publicapis.org/entries']
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             results = list(executor.map(fetch_data, api_urls))
 
@@ -151,3 +150,144 @@ class Httpx(APIView):
         ans = {"data": data, "total": total}
         return Response(ans)
 
+
+from rest_framework import views
+from rest_framework import status
+import requests
+import random
+import string
+from django.db import connection
+
+
+class InsertApiData(views.APIView):
+    def get(self, request):
+        start = time.time()
+        def fetch_data(url):
+            response = requests.get(url)
+            if response.status_code == 200:
+                return response.json()
+            return {'error': f'Failed to retrieve data from {url}'}
+
+        api_urls = ['https://api.publicapis.org/entries',
+                    'https://api.publicapis.org/entries',
+                    'https://api.publicapis.org/entries',
+                    'https://api.publicapis.org/entries',
+                   # 'https://api.publicapis.org/entries',
+                    # 'https://api.publicapis.org/entries',
+                    ]
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            results = list(executor.map(fetch_data, api_urls))
+        data = [result for result in results]  # Create a response data dictionary
+
+        def generate_api_id():
+            api_id = "API"+"".join(random.choice(string.digits) for i in range(6))
+            cursor.execute("SELECT api_id FROM apis WHERE api_id=%s", (api_id,))
+            db_id = cursor.fetchone()
+            if not db_id:
+                return api_id
+            else:
+                api_id = generate_api_id()
+                return api_id
+
+        # Insert data into the DBeaver table using raw queries
+        with connection.cursor() as cursor:
+            for i in range(len(data)):
+                api_data = data[i]['entries']
+                for item in api_data:
+                    # api_id = generate_api_id()
+                    raw_query = f"INSERT INTO apis (api_id, api, Description, Auth, HTTPS, Cors, Link, Category) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
+                    params = (generate_api_id(), item["API"], item["Description"], item["Auth"], item["HTTPS"], item["Cors"], item["Link"], item["Category"])
+                    cursor.execute(raw_query, params)
+        end =time.time()
+        tot = end-start
+        val = {"total":tot, "data":"Data inserted successfully"}
+        return Response(val, status=status.HTTP_201_CREATED)
+
+
+class InsertPageApiData(views.APIView):
+    def get(self, request):
+        start = time.time()
+
+        def insert_data(data):
+            with connection.cursor() as cursor:
+                api_data = data
+                for item in api_data:
+                    # api_id = generate_api_id()
+                    raw_query = """
+                                    INSERT INTO pagination (
+                                        api_id, id, name, tagline, first_brewed, description, image_url, 
+                                        abv, ibu, target_fg, target_og, ebc, srm, ph, attenuation_level, 
+                                        volume, boil_volume, method, ingredients, food_pairing, 
+                                        brewers_tips, contributed_by
+                                    ) VALUES (
+                                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
+                                        %s, %s, %s, %s, %s, %s
+                                    )
+                                """
+                    params = (
+                        generate_api_id(),
+                        item["id"],
+                        item["name"],
+                        item["tagline"],
+                        item["first_brewed"],
+                        item["description"],
+                        item["image_url"],
+                        item["abv"],
+                        item["ibu"],
+                        item["target_fg"],
+                        item["target_og"],
+                        item["ebc"],
+                        item["srm"],
+                        item["ph"],
+                        item["attenuation_level"],
+                        str(item["volume"]),
+                        str(item["boil_volume"]),
+                        str(item["method"]),
+                        str(item["ingredients"]),
+                        str(item["food_pairing"]),
+                        item["brewers_tips"],
+                        item["contributed_by"]
+                    )
+
+                    cursor.execute(raw_query, params)
+        def generate_api_id():
+            with connection.cursor() as cursor:
+                api_id = "API"+"".join(random.choice(string.digits) for i in range(6))
+                cursor.execute("SELECT api_id FROM pagination WHERE api_id=%s", (api_id,))
+                db_id = cursor.fetchone()
+                if not db_id:
+                    return api_id
+                else:
+                    api_id = generate_api_id()
+                    return api_id
+
+        def fetch_data(url):
+            response = requests.get(url)
+            if response.status_code == 200:
+                data = response.json()
+                print(data)
+                insert_data(data)
+                return {"message": "success"}
+            return {'error': f'Failed to retrieve data from {url}'}
+
+        api_urls = ['https://api.punkapi.com/v2/beers/',
+                    'https://api.punkapi.com/v2/beers/',
+                    'https://api.punkapi.com/v2/beers/',
+                    ]
+
+        def page(url):
+            for i in range(1, 11):
+                api_url = str(url)+str(i)
+                fetch_data(api_url)
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            results = list(executor.map(page, api_urls))
+
+        # data = [result for result in results]  # Create a response data dictionary
+
+        end = time.time()
+        tot = end - start
+        val = {"total": tot, "data": "Data inserted successfully"}
+
+        return Response(val, status=status.HTTP_201_CREATED)

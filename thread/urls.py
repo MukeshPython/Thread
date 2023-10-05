@@ -6,5 +6,7 @@ urlpatterns = [
     path('asyncio/', views.Asyncio.as_view(), name= 'asyncio'),
     path('multiprocessing/', views.Multiprocessing.as_view()),
     path('aiohttp/', views.Aiohttp.as_view()),
-    path('httpx/', views.Httpx.as_view())
+    path('httpx/', views.Httpx.as_view()),
+    path('sql/', views.InsertApiData.as_view()),
+    path('pagination/',views.InsertPageApiData.as_view())
 ]

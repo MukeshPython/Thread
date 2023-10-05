@@ -84,6 +84,9 @@ DATABASES = {
         'PORT': '3306',
         'USER': 'root',
         'PASSWORD': 'vrdella!6',
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+        }
 
     }
 }
